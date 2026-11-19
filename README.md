@@ -159,3 +159,14 @@ bestätigte Konten haben nicht automatisch ein Passwort. Klicke einmalig
 Wiederherstellungs-E-Mail, kehre zu MALINO zurück, öffne **Eltern** per Geräte-PIN
 und hinterlege dein eigenes Passwort. Danach kann das Konto jederzeit direkt
 per E-Mail/Passwort angemeldet werden. Das Passwort wird nie im Repository gespeichert.
+
+## Vorschau auf MALINO 0.7 – Universalcode statt E-Mail
+
+Diese Version befindet sich zunächst in `feature/universal-code-access` und ist **nicht live**.
+Nach Aktivierung anonymer Supabase-Anmeldungen und Konfiguration des serverseitigen
+Secrets `MALINO_ACCESS_CODE` wird eine Person über denselben vom Betreiber erhaltenen
+Code freigeschaltet; sie benötigt weder E-Mail noch Passwort. Der Code darf **niemals**
+in den öffentlichen Quellcode. Die Galerie ist pro Browser/Anonymnutzer getrennt.
+Löschen von Browserdaten/Wechsel des Geräts bedeutet Verlust des Cloud-Kontozugriffs.
+Bisherige Bilder aus dem E-Mail-Konto werden nicht automatisch übernommen.
+Zusätzlich gibt es ein globales KI-Tagesbudget (Standard: 50 Bilder/Tag).

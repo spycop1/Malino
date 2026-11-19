@@ -23,7 +23,7 @@
     </div>
     <div class="topbar-center">Deutsch · Tablet-Webapp · 5 Kreativmodi</div>
     <div class="topbar-actions">
-      <span class="version-badge">MALINO 0.6.2</span>
+      <span class="version-badge">MALINO 0.7.0</span>
       <button id="galleryBtn" class="header-pill" title="Bildergalerie öffnen">▦ Galerie</button>
       <button id="parentBtn" class="header-pill parent-pill" title="Elternbereich öffnen">⚙ Eltern</button>
       <button id="openHelp" class="icon-button" title="Hilfe">?</button>
@@ -170,6 +170,19 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="activationModal" hidden>
+  <div class="modal-card parent-modal" role="dialog" aria-modal="true" aria-label="MALINO freischalten">
+    <div class="modal-icon">✦</div>
+    <h2>Willkommen bei MALINO</h2>
+    <p>Gib den Zugangscode ein, den du für MALINO erhalten hast. Eine E-Mail-Anmeldung ist nicht erforderlich.</p>
+    <label class="field-label" for="activationCode">Dein MALINO-Zugangscode</label>
+    <input id="activationCode" type="password" autocomplete="off" spellcheck="false" autocapitalize="off" maxlength="100" placeholder="Zugangscode eingeben"/>
+    <button id="activateCodeBtn" type="button" class="primary-button full-width">MALINO freischalten</button>
+    <p id="activationStatus" class="muted-note" role="status"></p>
+    <p class="muted-note">Der Zugang wird für diesen Browser gespeichert. Wenn du Browserdaten löschst oder das Gerät wechselst, ist eine erneute Freischaltung nötig.</p>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="parentModal" hidden>
   <div class="modal-card parent-modal" role="dialog" aria-modal="true" aria-label="Elternbereich">
     <button id="closeParent" class="icon-button modal-close" aria-label="Elternbereich schließen">✕</button>
@@ -184,26 +197,9 @@
     </div>
     <div id="parentContent" hidden>
       <div class="parent-section">
-        <div class="mini-label">SUPABASE-CLOUD</div>
-        <div id="cloudAuthStatus" class="muted-note">Verbindung wird geprüft …</div>
-        <div id="emailLogin" class="email-login">
-          <label class="field-label" for="parentEmail">Eltern-E-Mail-Adresse</label>
-          <input type="email" id="parentEmail" placeholder="eltern@beispiel.de" autocomplete="username" required/>
-          <label class="field-label" for="parentPassword">Passwort</label>
-          <input type="password" id="parentPassword" placeholder="Dein MALINO-Passwort" autocomplete="current-password" minlength="8"/>
-          <button id="passwordLoginBtn" class="primary-button full-width" type="button">Mit E-Mail und Passwort anmelden</button>
-          <button id="passwordResetBtn" class="text-button" type="button">Erstmals Passwort festlegen / Passwort vergessen</button>
-          <div class="muted-note">Bereits per E-Mail-Link bestätigtes Konto? Lege einmalig über „Passwort festlegen“ ein Passwort an. Danach meldest du dich direkt hier an.</div>
-          <details class="muted-note"><summary>Alternativ: Einmaligen Anmeldelink verwenden</summary><button id="sendMagicLink" class="secondary-button" type="button">Anmeldelink senden</button></details>
-        </div>
-        <div id="passwordChange" class="parent-section" hidden>
-          <div class="mini-label" id="passwordChangeTitle">MALINO-PASSWORT</div>
-          <label class="field-label" for="newParentPassword">Neues Passwort (mindestens 10 Zeichen)</label>
-          <input id="newParentPassword" type="password" minlength="10" autocomplete="new-password" placeholder="Ein sicheres Passwort"/>
-          <button type="button" class="primary-button full-width" id="saveNewParentPassword">Passwort speichern</button>
-          <p class="muted-note">Das Passwort wird sicher bei Supabase gespeichert, nicht in MALINO oder GitHub.</p>
-        </div>
-        <button id="logoutBtn" class="text-button" hidden>Vom Elternkonto abmelden</button>
+        <div class="mini-label">MALINO-FREISCHALTUNG</div>
+        <div id="cloudAuthStatus" class="muted-note">Gerätefreigabe wird geprüft …</div>
+        <p class="muted-note">Kein Benutzerkonto und keine E-Mail nötig. Die Freischaltung erfolgt einmalig pro Browser über den Zugangscode.</p>
       </div>
       <form id="parentSettingsForm">
         <div class="parent-section">
@@ -216,7 +212,7 @@
             <label class="field-label inline-check"><input id="printAllowed" type="checkbox" checked/> A4-Druck erlauben</label>
           </div>
           <button type="submit" id="saveParentSettings" class="primary-button full-width">Einstellungen speichern</button>
-          <div class="muted-note">Das KI-Tageslimit wird bei Cloud-Nutzung auf dem Server geprüft. Die Geräte-PIN schützt nur die Oberfläche; sie ersetzt keine getrennte Eltern-Authentifizierung.</div>
+          <div class="muted-note">Das KI-Tageslimit wird bei Cloud-Nutzung auf dem Server geprüft. Die PIN schützt den Elternbereich auf diesem Gerät. Der Zugangscode ist nur zur Aktivierung gedacht.</div>
         </div>
       </form>
       <div class="parent-section">

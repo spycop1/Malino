@@ -1,4 +1,4 @@
-# MALINO MagicPad 0.6 — deutsche Tablet-Webapp
+# MALINO MagicPad 0.6.2 — deutsche Tablet-Webapp
 
 **5 Kreativfunktionen + Premium-UI + lokale und private Cloud-Galerie + Elternbereich + serverseitige KI-Tageslimits.**
 
@@ -150,3 +150,12 @@ zeigt verständliche Rückmeldungen bei verbrauchten/abgelaufenen Links und
 aktualisiert die Anmeldung ohne manuelles Neuladen. Wichtig: Der Link ist
 nur einmal gültig. Er muss auf demselben Gerät und im selben Browser
 geöffnet werden, auf dem MALINO verwendet werden soll.
+
+## Update 0.6.2: Einfacher Eltern-Login
+
+Im Elternbereich gibt es nun **E-Mail + Passwort**. Bestehende per Magic Link
+bestätigte Konten haben nicht automatisch ein Passwort. Klicke einmalig
+**„Erstmals Passwort festlegen / Passwort vergessen“**, öffne die Supabase-
+Wiederherstellungs-E-Mail, kehre zu MALINO zurück, öffne **Eltern** per Geräte-PIN
+und hinterlege dein eigenes Passwort. Danach kann das Konto jederzeit direkt
+per E-Mail/Passwort angemeldet werden. Das Passwort wird nie im Repository gespeichert.

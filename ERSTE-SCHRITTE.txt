@@ -1,0 +1,30 @@
+MALINO MagicPad 0.6
+===================
+
+SOFORT AUSPROBIEREN:
+1. ZIP entpacken.
+2. Node.js installieren (falls nicht vorhanden): https://nodejs.org/
+3. start-malino.bat unter Windows doppelklicken.
+4. http://127.0.0.1:8787 im Browser öffnen.
+5. Ein Ausmalbild bearbeiten, auf "In Galerie" tippen und den Elternbereich testen.
+
+DIE CLOUD AKTIVIEREN:
+1. Eigenes Supabase-Projekt anlegen.
+2. SQL aus supabase/migrations/... im SQL-Editor ausführen.
+3. Supabase Edge Function "malino-ai" bereitstellen.
+4. OpenAI-Schlüssel nur in die Edge Secrets von Supabase eintragen.
+5. Für den privaten MVP die Eltern-E-Mail unter MALINO_ALLOWED_EMAILS freigeben.
+6. Supabase-URL und ÖFFENTLICHEN Publishable-Key in public/config.js eintragen.
+7. Im Elternbereich per E-Mail-Magic-Link anmelden.
+
+IM INTERNET VERÖFFENTLICHEN:
+1. Alles in ein eigenes GitHub-Repository hochladen.
+2. GitHub Pages mit der vorhandenen GitHub Actions Workflow-Datei aktivieren.
+3. Die GitHub-Pages-Adresse als Redirect URL in Supabase Auth eintragen.
+
+WICHTIG:
+Ohne die Cloud-Einrichtung laufen nur Demobild, Malen, lokale Galerie und
+lokale Eltern-/Druckverwaltung. Neue KI-Bilder und Sprache benötigen Cloud.
+Nie einen geheimen OpenAI-Schlüssel in public/config.js eingeben!
+
+ALLE DETAILS SIND IN README.md BESCHRIEBEN.

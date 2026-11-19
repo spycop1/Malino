@@ -1,0 +1,14 @@
+{
+  "name": "malino-magicpad",
+  "version": "0.6.0",
+  "private": true,
+  "type": "module",
+  "description": "Deutschsprachige Tablet-Webapp mit KI, Galerie, Elternbereich und Supabase-Backend",
+  "scripts": {
+    "start": "node server/index.mjs",
+    "dev": "node --watch server/index.mjs",
+    "test": "node scripts/check-project.mjs && node --test server/*.test.mjs",
+    "config": "node scripts/write-config.mjs"
+  },
+  "engines": {"node": ">=20.19.0"}
+}

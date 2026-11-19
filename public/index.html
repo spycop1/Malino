@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <meta name="theme-color" content="#f5f4ee"/>
+  <meta name="description" content="MALINO MagicPad – die deutsche KI-Kreativ-Webapp für Kinder mit 5 kreativen Modi."/>
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg"/>
+  <link rel="manifest" href="./manifest.webmanifest"/>
+  <link rel="apple-touch-icon" href="./favicon.svg"/>
+  <link rel="stylesheet" href="./styles.css"/>
+  <title>MALINO MagicPad · Kreativstudio</title>
+</head>
+<body>
+<div class="app-shell">
+  <header class="topbar">
+    <div class="brand-wrap">
+      <div class="brand-mark">✦</div>
+      <div>
+        <div class="brand-name">malino<span>.</span></div>
+        <div class="brand-sub">MAGICPAD · KREATIVSTUDIO</div>
+      </div>
+    </div>
+    <div class="topbar-center">Deutsch · Tablet-Webapp · 5 Kreativmodi</div>
+    <div class="topbar-actions">
+      <span class="version-badge">MALINO 0.6</span>
+      <button id="galleryBtn" class="header-pill" title="Bildergalerie öffnen">▦ Galerie</button>
+      <button id="parentBtn" class="header-pill parent-pill" title="Elternbereich öffnen">⚙ Eltern</button>
+      <button id="openHelp" class="icon-button" title="Hilfe">?</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar">
+      <section class="sidebar-block hero-block">
+        <div class="mini-label">DEINE KI-KREATIVWELT</div>
+        <h1>Was du dir <em>ausdenkst</em>, wird bunt.</h1>
+        <div class="hero-stickers" aria-hidden="true"><span>✿</span><span>✦</span><span>☀</span></div>
+        <p>Sprich deinen Wunsch aus. Entdecke fünf kreative Welten und male dein eigenes Kunstwerk.</p>
+      </section>
+
+      <section class="sidebar-block mode-section">
+        <div class="section-head">
+          <div>
+            <div class="mini-label">MODUS</div>
+            <h2>Wähle eine Funktion</h2>
+          </div>
+        </div>
+        <div class="mode-grid" id="modeGrid"></div>
+      </section>
+
+      <section class="sidebar-block prompt-block">
+        <div class="section-head compact-head">
+          <div>
+            <div class="mini-label">DEIN WUNSCH</div>
+            <h2 id="modeTitle">Fantasie-Drucker</h2>
+          </div>
+          <div class="ready-state"><span id="statusDot" class="status-dot inactive"></span><span id="statusText">Cloud wird geprüft …</span></div>
+        </div>
+        <p id="modeDescription" class="mode-description"></p>
+        <label for="wishInput" class="field-label">Was soll MALINO für dich machen?</label>
+        <textarea id="wishInput" rows="4" maxlength="400"></textarea>
+        <div class="input-actions">
+          <button id="micBtn" class="secondary-button microphone-button">
+            <span class="mic-circle">🎙</span>
+            <span><strong id="micTitle">Sprich deinen Wunsch</strong><small id="micCopy">Tippe auf das Mikrofon</small></span>
+          </button>
+          <button id="generateBtn" class="primary-button"><span id="generateIcon">✦</span><span id="generateText">Mit KI erstellen</span></button>
+        </div>
+        <div class="idea-strip" id="ideaStrip"></div>
+        <div class="cloud-indicator"><span>✦</span><span id="usageLabel">Demo · zum Ausmalen bereit</span></div>
+      </section>
+    </aside>
+
+    <section class="workspace">
+      <div class="workspace-header">
+        <div>
+          <div class="mini-label">DEIN KUNSTWERK <span class="art-sparkle">✳</span></div>
+          <h2 id="artTitle">Affe im Baum</h2>
+          <p id="resultMeta" class="result-meta">Demo-Motiv · Farben lokal · ideal für Tablet und A4-Druck</p>
+        </div>
+        <div class="header-actions">
+          <button id="printBtn" class="secondary-button small-button">🖨 A4 drucken</button>
+          <button id="saveBtn" class="secondary-button small-button">♡ In Galerie</button>
+          <button id="downloadBtn" class="secondary-button small-button">⬇ PNG</button>
+          <button id="undoBtn" class="icon-button large-icon" title="Rückgängig" disabled>↶</button>
+          <button id="redoBtn" class="icon-button large-icon" title="Wiederholen" disabled>↷</button>
+        </div>
+      </div>
+
+      <div class="message-banner error" id="errorBanner" hidden><span id="errorText"></span><button id="errorClose">✕</button></div>
+      <div class="message-banner success" id="successBanner" hidden><span id="successText"></span><button id="successClose">✕</button></div>
+
+      <div class="paper-shell" id="printArea">
+        <div class="paper-page">
+          <canvas id="paintCanvas" class="paint-canvas" width="900" height="1273" aria-label="Digitale Maltafel"></canvas>
+          <img id="outlineImage" class="outline-image" src="./demo-a4.svg" alt="Ausmalbild" draggable="false"/>
+          <div id="loadingOverlay" class="loading-overlay" hidden>
+            <div class="spinner-star">✦</div>
+            <strong>MALINO erstellt dein Bild …</strong>
+            <span>Bitte einen kleinen Moment warten.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="paper-toolbar">
+        <div class="left-hint"><span class="green-dot"></span><span id="toolbarHint">Tippe auf eine geschlossene Fläche, um sie zu färben.</span></div>
+        <div class="toolbar-actions">
+          <button id="clearBtn" class="text-button">Farben entfernen</button>
+          <button id="voiceToggle" class="text-button">Sprachantwort aus</button>
+        </div>
+      </div>
+
+      <section class="tool-panel">
+        <div class="tool-block">
+          <div class="mini-label">FARBEN</div>
+          <div class="palette-row" id="palette"></div>
+        </div>
+        <div class="tool-block">
+          <div class="mini-label">WERKZEUGE</div>
+          <div class="tool-row">
+            <button class="tool-btn selected" data-tool="fill">▣ Füllen</button>
+            <button class="tool-btn" data-tool="brush">🖌 Stift</button>
+            <button class="tool-btn" data-tool="eraser">⌫ Radierer</button>
+          </div>
+        </div>
+        <div class="tool-block tool-range">
+          <div class="mini-label">STIFTSTÄRKE</div>
+          <label class="range-wrap">
+            <input id="brushSize" type="range" min="5" max="64" value="18" disabled/>
+            <span id="brushPreview" class="brush-preview"></span>
+          </label>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>MALINO · Erfinden · Malen · Lernen · Schenken</span>
+    <span>Ohne Werbung · Deutsche Oberfläche · Tablet-Webapp</span>
+  </footer>
+</div>
+
+<div class="modal-backdrop" id="helpModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-label="MALINO Hilfe">
+    <button id="closeHelp" class="icon-button modal-close">✕</button>
+    <div class="modal-icon">✦</div>
+    <h2>Willkommen bei MALINO</h2>
+    <p>MALINO ist eine deutsche Tablet-Webapp für Kinder. Sie erzeugt kreative Ausmalbilder und Arbeitsblätter mit KI und lässt sich direkt im Browser ausmalen.</p>
+    <ol>
+      <li>Wähle eine der 5 Kernfunktionen.</li>
+      <li>Sprich oder schreibe deinen Wunsch.</li>
+      <li>Lass MALINO das Motiv erstellen.</li>
+      <li>Male mit Farben, Stift oder Radierer weiter.</li>
+      <li>Drucke dein Ergebnis auf A4 oder speichere es.</li>
+    </ol>
+    <div class="modal-note">Für echte KI-Ergebnisse und Spracherkennung müssen Supabase und die geschützte Edge Function eingerichtet sein. Der OpenAI-Schlüssel bleibt ausschließlich als geheimes Supabase-Secret gespeichert. Ohne Cloud läuft der Demomodus.</div>
+    <button id="helpStart" class="primary-button full-width">Los geht's</button>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="galleryModal" hidden>
+  <div class="modal-card wide-modal" role="dialog" aria-modal="true" aria-label="Meine Bildergalerie">
+    <button id="closeGallery" class="icon-button modal-close" aria-label="Galerie schließen">✕</button>
+    <div class="modal-icon">♡</div>
+    <h2>Meine Bildergalerie</h2>
+    <p>Hier wohnen deine Kunstwerke. Du kannst sie wieder öffnen, herunterladen oder löschen.</p>
+    <div id="galleryStatus" class="muted-note"></div>
+    <div id="galleryGrid" class="gallery-grid"></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="parentModal" hidden>
+  <div class="modal-card parent-modal" role="dialog" aria-modal="true" aria-label="Elternbereich">
+    <button id="closeParent" class="icon-button modal-close" aria-label="Elternbereich schließen">✕</button>
+    <div class="modal-icon">⚙</div>
+    <h2>Elternbereich</h2>
+    <p>Hier können Erwachsene die MALINO-Einstellungen und die Bilderverwaltung kontrollieren.</p>
+    <div id="pinGate" class="pin-gate">
+      <label for="pinInput" id="pinLabel" class="field-label">Eltern-PIN (4–6 Ziffern)</label>
+      <input id="pinInput" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" placeholder="••••"/>
+      <button id="pinConfirm" class="primary-button full-width">Elternbereich öffnen</button>
+      <span id="pinNote" class="muted-note">Beim ersten Besuch legst du eine PIN für dieses Gerät fest.</span>
+    </div>
+    <div id="parentContent" hidden>
+      <div class="parent-section">
+        <div class="mini-label">SUPABASE-CLOUD</div>
+        <div id="cloudAuthStatus" class="muted-note">Verbindung wird geprüft …</div>
+        <div id="emailLogin" class="email-login">
+          <label class="field-label" for="parentEmail">Eltern-E-Mail-Adresse</label>
+          <div class="email-row"><input type="email" id="parentEmail" placeholder="eltern@beispiel.de" autocomplete="email"/><button id="sendMagicLink" class="secondary-button">Anmeldelink senden</button></div>
+          <span class="muted-note">Du erhältst einen einmaligen Link per E-Mail. Keine Kinder-E-Mail nötig.</span>
+        </div>
+        <button id="logoutBtn" class="text-button" hidden>Vom Elternkonto abmelden</button>
+      </div>
+      <form id="parentSettingsForm">
+        <div class="parent-section">
+          <div class="mini-label">KIND & KREATIVITÄT</div>
+          <div class="settings-grid">
+            <label class="field-label">Künstlername<input id="childNameInput" maxlength="40" placeholder="Kleiner Künstler"/></label>
+            <label class="field-label">Altersgruppe<select id="ageGroupSelect"><option value="3-4">3–4 Jahre</option><option value="4-6">4–6 Jahre</option><option value="7-10">7–10 Jahre</option></select></label>
+            <label class="field-label">KI-Bilder pro Tag<input id="dailyLimitInput" type="number" min="1" max="30" step="1"/></label>
+            <label class="field-label inline-check"><input id="voiceAllowed" type="checkbox" checked/> Sprachwünsche erlauben</label>
+            <label class="field-label inline-check"><input id="printAllowed" type="checkbox" checked/> A4-Druck erlauben</label>
+          </div>
+          <button type="submit" id="saveParentSettings" class="primary-button full-width">Einstellungen speichern</button>
+          <div class="muted-note">Das KI-Tageslimit wird bei Cloud-Nutzung auf dem Server geprüft. Die Geräte-PIN schützt nur die Oberfläche; sie ersetzt keine getrennte Eltern-Authentifizierung.</div>
+        </div>
+      </form>
+      <div class="parent-section">
+        <div class="mini-label">NUTZUNG & DRUCKHISTORIE</div>
+        <div class="usage-card"><strong id="parentUsage">0 / 5</strong><span>KI-Bilder heute (Berliner Zeit)</span></div>
+        <p class="muted-note">Gezählt werden geöffnete Druckdialoge, nicht nachgewiesene Ausdrucke.</p>
+        <div id="printHistory" class="print-history"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="./app.js" type="module"></script>
+</body>
+</html>

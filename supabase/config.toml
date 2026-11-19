@@ -1,0 +1,3 @@
+# Der Nutzer-Login wird vom Supabase-Gateway geprüft.
+[functions.malino-ai]
+verify_jwt = true

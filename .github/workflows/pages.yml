@@ -29,8 +29,8 @@ jobs:
           node-version: '22'
       - name: Öffentliche Supabase-Konfiguration schreiben
         env:
-          MALINO_SUPABASE_URL: ${{ vars.MALINO_SUPABASE_URL }}
-          MALINO_SUPABASE_PUBLISHABLE_KEY: ${{ vars.MALINO_SUPABASE_PUBLISHABLE_KEY }}
+          MALINO_SUPABASE_URL: ${{ vars.MALINO_SUPABASE_URL || 'https://gnygfwjapdzkkahonpob.supabase.co' }}
+          MALINO_SUPABASE_PUBLISHABLE_KEY: ${{ vars.MALINO_SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_EB15m13z0kE81HmUAoONpg_6ex48yRn' }}
         run: node scripts/write-config.mjs
       - name: Projekt prüfen
         run: npm test

@@ -142,3 +142,11 @@ server/index.mjs                optionaler lokaler Demo-HTTP-Server
 ## Nächste technische Aufgaben vor dem Marktstart
 
 Wirklich texttreue Lernblätter und lösbare Labyrinthe sollten besser **strukturiert erzeugt und danach gerendert** werden, statt sie nur als Bild mit Text von einem Bildmodell zeichnen zu lassen. Für ein späteres Kinderprodukt außerdem Account-Trennung nach Rollen, Eltern-Reauthentifizierung, Monitoring gegen Missbrauch, Nutzungsdaten-Sparsamkeit und vollständige Browser-/Geräte-Tests ergänzen.
+
+## Update 0.6.1: Elternanmeldung
+
+Die App erkennt nach Rückkehr vom E-Mail-Link jetzt den Anmeldestatus,
+zeigt verständliche Rückmeldungen bei verbrauchten/abgelaufenen Links und
+aktualisiert die Anmeldung ohne manuelles Neuladen. Wichtig: Der Link ist
+nur einmal gültig. Er muss auf demselben Gerät und im selben Browser
+geöffnet werden, auf dem MALINO verwendet werden soll.

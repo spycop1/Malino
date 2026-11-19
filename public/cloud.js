@@ -22,6 +22,40 @@ export async function cloud() {
   } catch (error) { cloudError = error; throw error; }
 }
 
+export async function createAnonymousSession() {
+  const sb=await cloud();
+  if(!sb) throw new Error('Die Cloud ist nicht eingerichtet.');
+  const {data:{user:existing},error:getError}=await sb.auth.getUser();
+  if(!getError && existing) return existing;
+  const {data,error}=await sb.auth.signInAnonymously();
+  if(error) throw error;
+  return data.user;
+}
+
+export async function accessGranted(userId) {
+  const sb=await cloud();
+  if(!sb || !userId) return false;
+  const {data,error}=await sb.from('malino_access_grants')
+    .select('owner_id').eq('owner_id',userId).is('revoked_at',null).maybeSingle();
+  if(error) throw error;
+  return !!data;
+}
+
+export async function activateCloud(code) {
+  const user=await createAnonymousSession();
+  const sb=await cloud();
+  const {data,error}=await sb.functions.invoke('malino-ai',{
+    body:{action:'activate',code}
+  });
+  if(error){
+    const detail=await error.context?.json?.().catch(()=>null);
+    throw new Error(detail?.error||error.message||'Freischaltung fehlgeschlagen.');
+  }
+  if(data?.error) throw new Error(data.error);
+  if(!data?.activated || !user) throw new Error('Freischaltung konnte nicht bestätigt werden.');
+  return user;
+}
+
 export async function signedIn() {
   const sb = await cloud();
   if (!sb) return null;
@@ -71,7 +105,7 @@ export async function generateCloud(subject, mode) {
   const {data, error} = await sb.functions.invoke('malino-ai', {body: {action: 'generate', subject, mode}});
   if (error) {
     const remote = await error.context?.json?.().catch(() => null);
-    throw new Error(remote?.error || (error.context?.status === 401 ? 'Bitte erneut im Elternbereich anmelden.' : error.message) || 'KI-Fehler.');
+    throw new Error(remote?.error || (error.context?.status === 401 ? 'Bitte MALINO erneut mit dem Zugangscode freischalten.' : error.message) || 'KI-Fehler.');
   }
   if (data?.error) throw new Error(data.error);
   return data;

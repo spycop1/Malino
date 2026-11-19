@@ -1,6 +1,6 @@
 'use strict';
 import {
-  cloudConfigured, cloud, signedIn, sendLogin, signOut,
+  cloudConfigured, cloud, signedIn, sendLogin, signOut, signInPassword, requestPasswordReset, changeParentPassword,
   generateCloud, transcribeCloud, fetchSettings, updateSettings,
   getDailyUse, uploadArtwork, fetchCloudGallery, deleteCloudArtwork,
   logCloudPrint, fetchCloudPrints
@@ -122,6 +122,7 @@ let recorder = null;
 let recStream = null;
 let stopTimeout = null;
 let cloudUser = null;
+let passwordRecoveryMode = false;
 let currentArtworkId = null;
 const defaultSettings = {child_name:'Kleiner Künstler', age_group:'4-6', daily_limit:5, voice_enabled:true, print_enabled:true};
 let settings = loadLocalSettings();
@@ -533,6 +534,16 @@ async function initializeCloudLogin(){
     // Änderungen im Eltern-Login auch ohne manuelles Neuladen übernehmen.
     // Den Callback nicht mit asynchronen Supabase-Anfragen blockieren.
     sb.auth.onAuthStateChange((event) => {
+      if(event==='PASSWORD_RECOVERY'){
+        passwordRecoveryMode=true;
+        setTimeout(async()=>{
+          try{
+            await healthCheck();
+            success('E-Mail bestätigt. Öffne Eltern, gib deine Geräte-PIN ein und lege ein neues Passwort fest.');
+          }catch(e){console.warn('Passwortwiederherstellung:',e);}
+        },0);
+        return;
+      }
       if(event!=='SIGNED_IN' && event!=='SIGNED_OUT') return;
       setTimeout(async () => {
         const prior=cloudUser?.id || null;
@@ -774,6 +785,8 @@ function renderSettings(){
 }
 async function populateParents(){
   renderSettings();
+  $('passwordChange').hidden=!passwordRecoveryMode;
+  $('passwordChangeTitle').textContent=passwordRecoveryMode?'JETZT NEUES PASSWORT FESTLEGEN':'PASSWORT ÄNDERN';
   if(!cloudConfigured()){
     $('cloudAuthStatus').textContent='Demomodus: In public/config.js zuerst dein eigenes Supabase-Projekt konfigurieren.';
     $('emailLogin').hidden=true;
@@ -784,6 +797,7 @@ async function populateParents(){
       $('cloudAuthStatus').textContent='Angemeldet: '+(cloudUser.email || 'Elternkonto');
       $('emailLogin').hidden=true;
       $('logoutBtn').hidden=false;
+      $('passwordChange').hidden=false;
       try{
         const row=await fetchSettings(cloudUser.id);
         settings={...settings,...row};
@@ -796,6 +810,7 @@ async function populateParents(){
       $('cloudAuthStatus').textContent='Noch kein Elternkonto angemeldet. Für KI und Cloud-Galerie bitte anmelden.';
       $('emailLogin').hidden=false;
       $('logoutBtn').hidden=true;
+      $('passwordChange').hidden=true;
     }
   }
   try{await refreshUsage();}catch(e){console.warn('Verbrauchsstatistik nicht verfügbar:',e);}
@@ -827,6 +842,50 @@ $('closeParent').addEventListener('click',()=>parentModal.hidden=true);
 parentModal.addEventListener('click',e=>{if(e.target===parentModal)parentModal.hidden=true;});
 $('pinConfirm').addEventListener('click',verifyOrCreatePin);
 $('pinInput').addEventListener('keydown',e=>{if(e.key==='Enter')verifyOrCreatePin();});
+$('passwordLoginBtn').addEventListener('click',async()=>{
+  const email=$('parentEmail').value.trim();
+  const password=$('parentPassword').value;
+  if(!/^\S+@\S+\.\S+$/.test(email))return error('Bitte eine gültige E-Mail-Adresse eingeben.');
+  if(!password)return error('Bitte das Passwort eingeben.');
+  $('passwordLoginBtn').disabled=true;
+  $('cloudAuthStatus').textContent='Anmeldung wird geprüft …';
+  try{
+    await signInPassword(email,password);
+    $('parentPassword').value='';
+    await healthCheck();
+    await populateParents();
+    success('Mit E-Mail und Passwort angemeldet!');
+  }catch(e){
+    $('cloudAuthStatus').textContent='E-Mail oder Passwort stimmen nicht. Falls du bisher nur einen E-Mail-Link verwendet hast, wähle „Erstmals Passwort festlegen“.';
+  }finally{$('passwordLoginBtn').disabled=false;}
+});
+$('parentPassword').addEventListener('keydown',event=>{
+  if(event.key==='Enter'){$('passwordLoginBtn').click();}
+});
+$('passwordResetBtn').addEventListener('click',async()=>{
+  const email=$('parentEmail').value.trim();
+  if(!/^\S+@\S+\.\S+$/.test(email))return error('Bitte zuerst deine hinterlegte Eltern-E-Mail-Adresse eintragen.');
+  $('passwordResetBtn').disabled=true;
+  try{
+    await requestPasswordReset(email);
+    $('cloudAuthStatus').textContent='Falls das Konto existiert, wurde eine E-Mail zum Festlegen des Passworts versendet. Öffne den neuesten Link einmalig; danach kannst du künftig direkt mit E-Mail und Passwort einloggen.';
+  }catch(e){$('cloudAuthStatus').textContent='Passwort-E-Mail konnte nicht gesendet werden: '+e.message;}
+  finally{$('passwordResetBtn').disabled=false;}
+});
+$('saveNewParentPassword').addEventListener('click',async()=>{
+  const pass=$('newParentPassword').value;
+  if(pass.length<10)return error('Bitte ein Passwort mit mindestens 10 Zeichen verwenden.');
+  $('saveNewParentPassword').disabled=true;
+  try{
+    await changeParentPassword(pass);
+    $('newParentPassword').value='';
+    passwordRecoveryMode=false;
+    $('passwordChange').hidden=true;
+    success('MALINO-Passwort gespeichert. Du kannst dich künftig direkt mit deiner E-Mail-Adresse und diesem Passwort anmelden.');
+    await healthCheck();
+  }catch(e){error('Passwort konnte nicht gespeichert werden: '+e.message);}
+  finally{$('saveNewParentPassword').disabled=false;}
+});
 $('sendMagicLink').addEventListener('click',async()=>{
   const email=$('parentEmail').value.trim();
   if(!/^\S+@\S+\.\S+$/.test(email))return alert('Bitte eine gültige E-Mail-Adresse eingeben.');

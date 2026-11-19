@@ -6,7 +6,6 @@ import {
   logCloudPrint, fetchCloudPrints
 } from './cloud.js';
 import {localArt, localPrints} from './local-store.js';
-import {readAuthReturn} from './auth-flow.js';
 
 const WIDTH = 900;
 const HEIGHT = 1273;

@@ -64,42 +64,6 @@ export async function signedIn() {
   return user;
 }
 
-export async function signInPassword(email,password){
-  const sb=await cloud();
-  if(!sb) throw new Error('Supabase ist noch nicht eingerichtet.');
-  const {data,error}=await sb.auth.signInWithPassword({email,password});
-  if(error) throw error;
-  return data.user;
-}
-export async function requestPasswordReset(email){
-  const sb=await cloud();
-  if(!sb) throw new Error('Supabase ist noch nicht eingerichtet.');
-  const {error}=await sb.auth.resetPasswordForEmail(email,{
-    redirectTo:location.origin+location.pathname
-  });
-  if(error) throw error;
-}
-export async function changeParentPassword(password){
-  const sb=await cloud();
-  if(!sb) throw new Error('Supabase ist noch nicht eingerichtet.');
-  const {data,error}=await sb.auth.updateUser({password});
-  if(error) throw error;
-  return data.user;
-}
-export async function sendLogin(email) {
-  const sb = await cloud();
-  if (!sb) throw new Error('Supabase ist noch nicht eingerichtet.');
-  const {error} = await sb.auth.signInWithOtp({
-    email,
-    options: {emailRedirectTo: location.origin + location.pathname}
-  });
-  if (error) throw error;
-}
-export async function signOut() {
-  const sb = await cloud();
-  if (sb) { const {error} = await sb.auth.signOut(); if (error) throw error; }
-}
-
 export async function generateCloud(subject, mode) {
   const sb = await cloud();
   const {data, error} = await sb.functions.invoke('malino-ai', {body: {action: 'generate', subject, mode}});

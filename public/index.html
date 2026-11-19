@@ -23,7 +23,7 @@
     </div>
     <div class="topbar-center">Deutsch · Tablet-Webapp · 5 Kreativmodi</div>
     <div class="topbar-actions">
-      <span class="version-badge">MALINO 0.6.1</span>
+      <span class="version-badge">MALINO 0.6.2</span>
       <button id="galleryBtn" class="header-pill" title="Bildergalerie öffnen">▦ Galerie</button>
       <button id="parentBtn" class="header-pill parent-pill" title="Elternbereich öffnen">⚙ Eltern</button>
       <button id="openHelp" class="icon-button" title="Hilfe">?</button>
@@ -188,8 +188,20 @@
         <div id="cloudAuthStatus" class="muted-note">Verbindung wird geprüft …</div>
         <div id="emailLogin" class="email-login">
           <label class="field-label" for="parentEmail">Eltern-E-Mail-Adresse</label>
-          <div class="email-row"><input type="email" id="parentEmail" placeholder="eltern@beispiel.de" autocomplete="email"/><button id="sendMagicLink" class="secondary-button">Anmeldelink senden</button></div>
-          <span class="muted-note">Du erhältst einen einmaligen Link per E-Mail. <strong>Öffne ihn nur einmal im selben Browser und auf demselben Gerät wie MALINO.</strong> Ein Link, den du z. B. am Smartphone öffnest, meldet dich nicht automatisch am PC an. Keine Kinder-E-Mail nötig.</span>
+          <input type="email" id="parentEmail" placeholder="eltern@beispiel.de" autocomplete="username" required/>
+          <label class="field-label" for="parentPassword">Passwort</label>
+          <input type="password" id="parentPassword" placeholder="Dein MALINO-Passwort" autocomplete="current-password" minlength="8"/>
+          <button id="passwordLoginBtn" class="primary-button full-width" type="button">Mit E-Mail und Passwort anmelden</button>
+          <button id="passwordResetBtn" class="text-button" type="button">Erstmals Passwort festlegen / Passwort vergessen</button>
+          <div class="muted-note">Bereits per E-Mail-Link bestätigtes Konto? Lege einmalig über „Passwort festlegen“ ein Passwort an. Danach meldest du dich direkt hier an.</div>
+          <details class="muted-note"><summary>Alternativ: Einmaligen Anmeldelink verwenden</summary><button id="sendMagicLink" class="secondary-button" type="button">Anmeldelink senden</button></details>
+        </div>
+        <div id="passwordChange" class="parent-section" hidden>
+          <div class="mini-label" id="passwordChangeTitle">MALINO-PASSWORT</div>
+          <label class="field-label" for="newParentPassword">Neues Passwort (mindestens 10 Zeichen)</label>
+          <input id="newParentPassword" type="password" minlength="10" autocomplete="new-password" placeholder="Ein sicheres Passwort"/>
+          <button type="button" class="primary-button full-width" id="saveNewParentPassword">Passwort speichern</button>
+          <p class="muted-note">Das Passwort wird sicher bei Supabase gespeichert, nicht in MALINO oder GitHub.</p>
         </div>
         <button id="logoutBtn" class="text-button" hidden>Vom Elternkonto abmelden</button>
       </div>

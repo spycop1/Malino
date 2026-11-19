@@ -1,6 +1,6 @@
 'use strict';
 import {
-  cloudConfigured, cloud, signedIn, sendLogin, signOut, signInPassword, requestPasswordReset, changeParentPassword,
+  cloudConfigured, cloud, signedIn, accessGranted, activateCloud,
   generateCloud, transcribeCloud, fetchSettings, updateSettings,
   getDailyUse, uploadArtwork, fetchCloudGallery, deleteCloudArtwork,
   logCloudPrint, fetchCloudPrints
@@ -13,7 +13,7 @@ const HEIGHT = 1273;
 const $ = id => document.getElementById(id);
 const canvas = $('paintCanvas');
 const ctx = canvas.getContext('2d', {willReadFrequently: true});
-const emailReturn = readAuthReturn(window.location.href);
+const activationModal = $('activationModal');
 const outline = $('outlineImage');
 
 const palette = [
@@ -122,8 +122,7 @@ let recorder = null;
 let recStream = null;
 let stopTimeout = null;
 let cloudUser = null;
-const recoveryFragment = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-let passwordRecoveryMode = recoveryFragment.get('type') === 'recovery' || new URL(window.location.href).searchParams.get('type') === 'recovery';
+
 let currentArtworkId = null;
 const defaultSettings = {child_name:'Kleiner Künstler', age_group:'4-6', daily_limit:5, voice_enabled:true, print_enabled:true};
 let settings = loadLocalSettings();
@@ -304,7 +303,7 @@ async function requestImage(wish) {
   const trimmed = wish.trim();
   if (trimmed.length < 4) return error('Bitte gib einen längeren Wunsch ein.');
   if (!cloudConfigured()) return error('Für neue KI-Bilder muss Supabase eingerichtet werden. Die Demo-Maltafel funktioniert schon.');
-  if (!cloudUser) return error('Bitte zuerst im Elternbereich mit einer Eltern-E-Mail anmelden.');
+  if (!cloudUser) {activationModal.hidden=false;return error('Bitte zuerst den MALINO-Zugangscode eingeben.');}
   clearMessages(); setStage('generating');
   try {
     const result = await generateCloud(trimmed, currentMode);
@@ -331,7 +330,7 @@ async function micToggle() {
   if (stage !== 'idle') return;
   clearMessages();
   if (!settings.voice_enabled) return error('Sprachwünsche sind im Elternbereich deaktiviert.');
-  if (!cloudConfigured() || !cloudUser) return error('Für Spracherkennung bitte zuerst die Cloud einrichten und den Elternaccount anmelden.');
+  if (!cloudConfigured() || !cloudUser) {activationModal.hidden=false;return error('Bitte MALINO zuerst mit dem Zugangscode aktivieren.');}
   if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
     error('Das Mikrofon braucht einen aktuellen Browser mit HTTPS oder localhost.');
     return;
@@ -487,7 +486,7 @@ function printArtwork() {
 }
 async function refreshUsage(){
   if(!cloudUser){
-    $('usageLabel').textContent = cloudConfigured()?'Eltern-Anmeldung für KI erforderlich':'Demomodus · Ausmalen ohne Konto';
+    $('usageLabel').textContent = cloudConfigured()?'Zugangscode für KI erforderlich':'Demomodus · Ausmalen ohne Code';
     $('parentUsage').textContent = `– / ${settings.daily_limit}`;
     return;
   }
@@ -497,86 +496,42 @@ async function refreshUsage(){
 }
 async function healthCheck(){
   $('statusDot').className='status-dot '+(cloudConfigured()?'active':'inactive');
-  $('statusText').textContent=cloudConfigured()?'Cloud bereit · Eltern-Login fehlt':'Demo · Cloud nicht eingerichtet';
+  $('statusText').textContent=cloudConfigured()?'Zugangscode erforderlich':'Demo · Cloud nicht eingerichtet';
   if(!cloudConfigured()){await refreshUsage();return;}
-  try {
-    cloudUser=await signedIn();
+  try{
+    const user=await signedIn();
+    cloudUser=user && await accessGranted(user.id) ? user : null;
     if(cloudUser){
-      $('statusText').textContent='Elternkonto angemeldet';
-      try {
-        const row=await fetchSettings(cloudUser.id);
-        settings={...settings,...row};
-        persistLocalSettings();
-        applyControls();
-      } catch (e) {
-        console.warn('Eltern-Einstellungen:',e);
-        error('Du bist angemeldet, aber die Elterneinstellungen konnten nicht geladen werden. Bitte die Seite neu laden.');
-      }
+      $('statusText').textContent='MALINO freigeschaltet';
+      const row=await fetchSettings(cloudUser.id);
+      settings={...settings,...row};
+      persistLocalSettings();applyControls();
+      activationModal.hidden=true;
+    }else{
+      activationModal.hidden=false;
     }
     await refreshUsage();
-  } catch(e) {
-    $('statusText').textContent='Cloud-Anmeldung konnte nicht geprüft werden';
-    console.warn(e);
+  }catch(e){
+    cloudUser=null;
+    $('statusText').textContent='Freischaltung konnte nicht geprüft werden';
+    activationModal.hidden=false;
+    console.warn('MALINO Freischaltung:',e);
   }
-}
-
-function clearEmailReturnAddress(){
-  // Fehler oder Bestätigungscode gehören nach Abschluss nicht in die Adressleiste.
-  const url = new URL(window.location.href);
-  for(const key of ['code','token_hash','type','error','error_code','error_description']) url.searchParams.delete(key);
-  if(/(?:access_token|refresh_token|error_description|error_code)=/.test(url.hash)) url.hash='';
-  window.history.replaceState(window.history.state, '', url.pathname+url.search+url.hash);
 }
 
 async function initializeCloudLogin(){
-  if(!cloudConfigured()) {await healthCheck();return;}
+  if(!cloudConfigured()){await healthCheck();return;}
   try{
     const sb=await cloud();
-    // Änderungen im Eltern-Login auch ohne manuelles Neuladen übernehmen.
-    // Den Callback nicht mit asynchronen Supabase-Anfragen blockieren.
-    sb.auth.onAuthStateChange((event) => {
-      if(event==='PASSWORD_RECOVERY'){
-        passwordRecoveryMode=true;
-        setTimeout(async()=>{
-          try{
-            await healthCheck();
-            success('E-Mail bestätigt. Öffne Eltern, gib deine Geräte-PIN ein und lege ein neues Passwort fest.');
-          }catch(e){console.warn('Passwortwiederherstellung:',e);}
-        },0);
-        return;
-      }
-      if(event!=='SIGNED_IN' && event!=='SIGNED_OUT') return;
-      setTimeout(async () => {
-        const prior=cloudUser?.id || null;
-        await healthCheck();
-        if(!parentModal.hidden && !$('parentContent').hidden){
-          try {await populateParents();}catch(e){console.warn('Elternbereich aktualisieren:',e);}
-        }
-        if(event==='SIGNED_IN' && cloudUser && prior!==cloudUser.id){
-          success('Elternkonto erfolgreich angemeldet. Du kannst jetzt KI-Bilder erstellen.');
-        }
-        if(event==='SIGNED_OUT' && prior) success('Vom Elternkonto abgemeldet.');
-      },0);
+    sb.auth.onAuthStateChange((event)=>{
+      if(event!=='SIGNED_IN'&&event!=='SIGNED_OUT'&&event!=='TOKEN_REFRESHED')return;
+      setTimeout(()=>healthCheck().catch(console.warn),0);
     });
     await healthCheck();
-    if(emailReturn.fromEmail){
-      clearEmailReturnAddress();
-      if(emailReturn.error){
-        error(emailReturn.expired
-          ? 'Der E-Mail-Link wurde bereits verwendet oder ist abgelaufen. Öffne MALINO auf diesem Gerät, fordere im Elternbereich einen NEUEN Link an und öffne ihn nur einmal.'
-          : 'Die E-Mail-Bestätigung konnte nicht abgeschlossen werden. Fordere im Elternbereich einen neuen Anmeldelink an.');
-      }else if(cloudUser){
-        success('E-Mail-Anmeldung erfolgreich! Öffne den Elternbereich mit deiner Geräte-PIN.');
-      }else{
-        error('Die E-Mail wurde bestätigt, aber in diesem Browser ist keine Sitzung gespeichert. Öffne den Anmeldelink im selben Browser und auf demselben Gerät wie MALINO oder fordere hier einen neuen Link an.');
-      }
-    }
-  } catch(e){
-    console.warn('Cloud-Anmeldung:',e);
-    error('Die Elternanmeldung konnte nicht geprüft werden. Bitte die Seite neu laden.');
+  }catch(e){
+    error('MALINO Cloud nicht erreichbar. Bitte Verbindung prüfen.');
   }
 }
-
 
 canvas.addEventListener('pointerdown', event => {
   if (event.pointerType === 'mouse' && event.button !== 0) return;
@@ -786,35 +741,10 @@ function renderSettings(){
 }
 async function populateParents(){
   renderSettings();
-  $('passwordChange').hidden=!passwordRecoveryMode;
-  $('passwordChangeTitle').textContent=passwordRecoveryMode?'JETZT NEUES PASSWORT FESTLEGEN':'PASSWORT ÄNDERN';
-  if(!cloudConfigured()){
-    $('cloudAuthStatus').textContent='Demomodus: In public/config.js zuerst dein eigenes Supabase-Projekt konfigurieren.';
-    $('emailLogin').hidden=true;
-    $('logoutBtn').hidden=true;
-  }else{
-    cloudUser=await signedIn();
-    if(cloudUser){
-      $('cloudAuthStatus').textContent='Angemeldet: '+(cloudUser.email || 'Elternkonto');
-      $('emailLogin').hidden=true;
-      $('logoutBtn').hidden=false;
-      $('passwordChange').hidden=false;
-      try{
-        const row=await fetchSettings(cloudUser.id);
-        settings={...settings,...row};
-        persistLocalSettings();renderSettings();applyControls();
-      }catch(e){
-        console.warn('Eltern-Einstellungen:',e);
-        $('cloudAuthStatus').textContent='Angemeldet, aber die Elterneinstellungen konnten nicht geladen werden. Bitte neu laden.';
-      }
-    }else{
-      $('cloudAuthStatus').textContent='Noch kein Elternkonto angemeldet. Für KI und Cloud-Galerie bitte anmelden.';
-      $('emailLogin').hidden=false;
-      $('logoutBtn').hidden=true;
-      $('passwordChange').hidden=true;
-    }
-  }
-  try{await refreshUsage();}catch(e){console.warn('Verbrauchsstatistik nicht verfügbar:',e);}
+  $('cloudAuthStatus').textContent=cloudUser
+    ? 'Dieses Gerät ist freigeschaltet. Keine E-Mail-Anmeldung erforderlich.'
+    : 'Noch nicht freigeschaltet. Bitte MALINO mit dem Zugangscode aktivieren.';
+  try{await refreshUsage();}catch(e){console.warn('Nutzung:',e);}
   await renderPrintHistory();
 }
 async function renderPrintHistory(){
@@ -843,59 +773,24 @@ $('closeParent').addEventListener('click',()=>parentModal.hidden=true);
 parentModal.addEventListener('click',e=>{if(e.target===parentModal)parentModal.hidden=true;});
 $('pinConfirm').addEventListener('click',verifyOrCreatePin);
 $('pinInput').addEventListener('keydown',e=>{if(e.key==='Enter')verifyOrCreatePin();});
-$('passwordLoginBtn').addEventListener('click',async()=>{
-  const email=$('parentEmail').value.trim();
-  const password=$('parentPassword').value;
-  if(!/^\S+@\S+\.\S+$/.test(email))return error('Bitte eine gültige E-Mail-Adresse eingeben.');
-  if(!password)return error('Bitte das Passwort eingeben.');
-  $('passwordLoginBtn').disabled=true;
-  $('cloudAuthStatus').textContent='Anmeldung wird geprüft …';
+$('activateCodeBtn').addEventListener('click',async()=>{
+  const code=$('activationCode').value.trim();
+  if(code.length<12){$('activationStatus').textContent='Bitte den vollständigen MALINO-Zugangscode eingeben.';return;}
+  $('activateCodeBtn').disabled=true;
+  $('activationStatus').textContent='Der Zugangscode wird geprüft …';
   try{
-    await signInPassword(email,password);
-    $('parentPassword').value='';
+    await activateCloud(code);
+    $('activationCode').value='';
     await healthCheck();
-    await populateParents();
-    success('Mit E-Mail und Passwort angemeldet!');
+    if(!cloudUser)throw new Error('Gerätefreigabe konnte nicht geladen werden.');
+    activationModal.hidden=true;
+    success('MALINO ist freigeschaltet. Viel Spaß beim Malen!');
   }catch(e){
-    $('cloudAuthStatus').textContent='E-Mail oder Passwort stimmen nicht. Falls du bisher nur einen E-Mail-Link verwendet hast, wähle „Erstmals Passwort festlegen“.';
-  }finally{$('passwordLoginBtn').disabled=false;}
+    $('activationStatus').textContent=e.message||'Code konnte nicht geprüft werden.';
+  }finally{$('activateCodeBtn').disabled=false;}
 });
-$('parentPassword').addEventListener('keydown',event=>{
-  if(event.key==='Enter'){$('passwordLoginBtn').click();}
-});
-$('passwordResetBtn').addEventListener('click',async()=>{
-  const email=$('parentEmail').value.trim();
-  if(!/^\S+@\S+\.\S+$/.test(email))return error('Bitte zuerst deine hinterlegte Eltern-E-Mail-Adresse eintragen.');
-  $('passwordResetBtn').disabled=true;
-  try{
-    await requestPasswordReset(email);
-    $('cloudAuthStatus').textContent='Falls das Konto existiert, wurde eine E-Mail zum Festlegen des Passworts versendet. Öffne den neuesten Link einmalig; danach kannst du künftig direkt mit E-Mail und Passwort einloggen.';
-  }catch(e){$('cloudAuthStatus').textContent='Passwort-E-Mail konnte nicht gesendet werden: '+e.message;}
-  finally{$('passwordResetBtn').disabled=false;}
-});
-$('saveNewParentPassword').addEventListener('click',async()=>{
-  const pass=$('newParentPassword').value;
-  if(pass.length<10)return error('Bitte ein Passwort mit mindestens 10 Zeichen verwenden.');
-  $('saveNewParentPassword').disabled=true;
-  try{
-    await changeParentPassword(pass);
-    $('newParentPassword').value='';
-    passwordRecoveryMode=false;
-    $('passwordChange').hidden=true;
-    success('MALINO-Passwort gespeichert. Du kannst dich künftig direkt mit deiner E-Mail-Adresse und diesem Passwort anmelden.');
-    await healthCheck();
-  }catch(e){error('Passwort konnte nicht gespeichert werden: '+e.message);}
-  finally{$('saveNewParentPassword').disabled=false;}
-});
-$('sendMagicLink').addEventListener('click',async()=>{
-  const email=$('parentEmail').value.trim();
-  if(!/^\S+@\S+\.\S+$/.test(email))return alert('Bitte eine gültige E-Mail-Adresse eingeben.');
-  try{await sendLogin(email);$('cloudAuthStatus').textContent='Neuer Anmeldelink angefordert. Bitte NUR DEN NEUESTEN Link EINMAL öffnen – auf demselben Gerät und im selben Browser, in dem du MALINO benutzt. Danach zu MALINO zurückkehren.';}
-  catch(e){$('cloudAuthStatus').textContent='Anmeldung fehlgeschlagen: '+e.message;}
-});
-$('logoutBtn').addEventListener('click',async()=>{
-  try{await signOut();cloudUser=null;await populateParents();await refreshUsage();}
-  catch(e){$('cloudAuthStatus').textContent='Abmelden fehlgeschlagen: '+e.message;}
+$('activationCode').addEventListener('keydown',event=>{
+  if(event.key==='Enter')$('activateCodeBtn').click();
 });
 $('parentSettingsForm').addEventListener('submit',async e=>{
   e.preventDefault();

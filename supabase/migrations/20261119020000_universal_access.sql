@@ -94,3 +94,65 @@ revoke all on function public.malino_reserve_generation(uuid) from public,anon,a
 revoke all on function public.malino_refund_generation(uuid) from public,anon,authenticated;
 grant execute on function public.malino_reserve_generation(uuid) to service_role;
 grant execute on function public.malino_refund_generation(uuid) to service_role;
+
+-- Sprachwünsche erhalten ein eigenes geräteweites und globales Budget.
+alter table public.malino_global_budget
+  add column if not exists voice_used integer not null default 0 check (voice_used >= 0);
+alter table public.malino_global_config
+  add column if not exists voice_daily_limit integer not null default 100 check (voice_daily_limit between 1 and 10000);
+create table if not exists public.malino_voice_usage(
+  owner_id uuid not null references auth.users(id) on delete cascade,
+  day date not null,
+  used integer not null default 0 check (used >= 0),
+  primary key (owner_id, day)
+);
+alter table public.malino_voice_usage enable row level security;
+revoke all on public.malino_voice_usage from public,anon,authenticated;
+
+create or replace function public.malino_reserve_voice(p_user_id uuid)
+returns boolean language plpgsql security definer set search_path='' as $$
+declare
+  v_day date := (now() at time zone 'Europe/Berlin')::date;
+  v_global integer;
+  v_limit integer;
+  v_local integer;
+begin
+  if p_user_id is null or not exists(
+    select 1 from public.malino_access_grants where owner_id=p_user_id and revoked_at is null
+  ) then return false; end if;
+
+  insert into public.malino_global_budget(day,used,voice_used)
+    values(v_day,0,0) on conflict do nothing;
+  select voice_used into v_global
+    from public.malino_global_budget where day=v_day for update;
+  select voice_daily_limit into v_limit from public.malino_global_config where id=1;
+  if v_limit is null or v_global >= v_limit then return false; end if;
+
+  insert into public.malino_voice_usage(owner_id,day,used)
+    values(p_user_id,v_day,0) on conflict do nothing;
+  select used into v_local from public.malino_voice_usage
+    where owner_id=p_user_id and day=v_day for update;
+  if v_local >= 10 then return false; end if;
+
+  update public.malino_voice_usage set used=used+1
+    where owner_id=p_user_id and day=v_day;
+  update public.malino_global_budget set voice_used=voice_used+1 where day=v_day;
+  return true;
+end;
+$$;
+create or replace function public.malino_refund_voice(p_user_id uuid)
+returns void language plpgsql security definer set search_path='' as $$
+declare v_day date := (now() at time zone 'Europe/Berlin')::date;
+begin
+  update public.malino_voice_usage set used=greatest(0,used-1)
+  where owner_id=p_user_id and day=v_day;
+  if found then
+    update public.malino_global_budget set voice_used=greatest(0,voice_used-1)
+    where day=v_day;
+  end if;
+end;
+$$;
+revoke all on function public.malino_reserve_voice(uuid) from public,anon,authenticated;
+revoke all on function public.malino_refund_voice(uuid) from public,anon,authenticated;
+grant execute on function public.malino_reserve_voice(uuid) to service_role;
+grant execute on function public.malino_refund_voice(uuid) to service_role;

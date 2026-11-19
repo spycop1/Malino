@@ -6,12 +6,14 @@ import {
   logCloudPrint, fetchCloudPrints
 } from './cloud.js';
 import {localArt, localPrints} from './local-store.js';
+import {readAuthReturn} from './auth-flow.js';
 
 const WIDTH = 900;
 const HEIGHT = 1273;
 const $ = id => document.getElementById(id);
 const canvas = $('paintCanvas');
 const ctx = canvas.getContext('2d', {willReadFrequently: true});
+const emailReturn = readAuthReturn(window.location.href);
 const outline = $('outlineImage');
 
 const palette = [
@@ -493,22 +495,76 @@ async function refreshUsage(){
 }
 async function healthCheck(){
   $('statusDot').className='status-dot '+(cloudConfigured()?'active':'inactive');
-  $('statusText').textContent=cloudConfigured()?'Cloud konfiguriert':'Demo · Cloud nicht eingerichtet';
+  $('statusText').textContent=cloudConfigured()?'Cloud bereit · Eltern-Login fehlt':'Demo · Cloud nicht eingerichtet';
   if(!cloudConfigured()){await refreshUsage();return;}
   try {
     cloudUser=await signedIn();
     if(cloudUser){
-      const row=await fetchSettings(cloudUser.id);
-      settings={...settings,...row};
-      persistLocalSettings();
-      applyControls();
+      $('statusText').textContent='Elternkonto angemeldet';
+      try {
+        const row=await fetchSettings(cloudUser.id);
+        settings={...settings,...row};
+        persistLocalSettings();
+        applyControls();
+      } catch (e) {
+        console.warn('Eltern-Einstellungen:',e);
+        error('Du bist angemeldet, aber die Elterneinstellungen konnten nicht geladen werden. Bitte die Seite neu laden.');
+      }
     }
     await refreshUsage();
   } catch(e) {
-    $('statusText').textContent='Cloud aktuell nicht erreichbar';
+    $('statusText').textContent='Cloud-Anmeldung konnte nicht geprüft werden';
     console.warn(e);
   }
 }
+
+function clearEmailReturnAddress(){
+  // Fehler oder Bestätigungscode gehören nach Abschluss nicht in die Adressleiste.
+  const url = new URL(window.location.href);
+  for(const key of ['code','token_hash','type','error','error_code','error_description']) url.searchParams.delete(key);
+  if(/(?:access_token|refresh_token|error_description|error_code)=/.test(url.hash)) url.hash='';
+  window.history.replaceState(window.history.state, '', url.pathname+url.search+url.hash);
+}
+
+async function initializeCloudLogin(){
+  if(!cloudConfigured()) {await healthCheck();return;}
+  try{
+    const sb=await cloud();
+    // Änderungen im Eltern-Login auch ohne manuelles Neuladen übernehmen.
+    // Den Callback nicht mit asynchronen Supabase-Anfragen blockieren.
+    sb.auth.onAuthStateChange((event) => {
+      if(event!=='SIGNED_IN' && event!=='SIGNED_OUT') return;
+      setTimeout(async () => {
+        const prior=cloudUser?.id || null;
+        await healthCheck();
+        if(!parentModal.hidden && !$('parentContent').hidden){
+          try {await populateParents();}catch(e){console.warn('Elternbereich aktualisieren:',e);}
+        }
+        if(event==='SIGNED_IN' && cloudUser && prior!==cloudUser.id){
+          success('Elternkonto erfolgreich angemeldet. Du kannst jetzt KI-Bilder erstellen.');
+        }
+        if(event==='SIGNED_OUT' && prior) success('Vom Elternkonto abgemeldet.');
+      },0);
+    });
+    await healthCheck();
+    if(emailReturn.fromEmail){
+      clearEmailReturnAddress();
+      if(emailReturn.error){
+        error(emailReturn.expired
+          ? 'Der E-Mail-Link wurde bereits verwendet oder ist abgelaufen. Öffne MALINO auf diesem Gerät, fordere im Elternbereich einen NEUEN Link an und öffne ihn nur einmal.'
+          : 'Die E-Mail-Bestätigung konnte nicht abgeschlossen werden. Fordere im Elternbereich einen neuen Anmeldelink an.');
+      }else if(cloudUser){
+        success('E-Mail-Anmeldung erfolgreich! Öffne den Elternbereich mit deiner Geräte-PIN.');
+      }else{
+        error('Die E-Mail wurde bestätigt, aber in diesem Browser ist keine Sitzung gespeichert. Öffne den Anmeldelink im selben Browser und auf demselben Gerät wie MALINO oder fordere hier einen neuen Link an.');
+      }
+    }
+  } catch(e){
+    console.warn('Cloud-Anmeldung:',e);
+    error('Die Elternanmeldung konnte nicht geprüft werden. Bitte die Seite neu laden.');
+  }
+}
+
 
 canvas.addEventListener('pointerdown', event => {
   if (event.pointerType === 'mouse' && event.button !== 0) return;
@@ -728,9 +784,14 @@ async function populateParents(){
       $('cloudAuthStatus').textContent='Angemeldet: '+(cloudUser.email || 'Elternkonto');
       $('emailLogin').hidden=true;
       $('logoutBtn').hidden=false;
-      const row=await fetchSettings(cloudUser.id);
-      settings={...settings,...row};
-      persistLocalSettings();renderSettings();applyControls();
+      try{
+        const row=await fetchSettings(cloudUser.id);
+        settings={...settings,...row};
+        persistLocalSettings();renderSettings();applyControls();
+      }catch(e){
+        console.warn('Eltern-Einstellungen:',e);
+        $('cloudAuthStatus').textContent='Angemeldet, aber die Elterneinstellungen konnten nicht geladen werden. Bitte neu laden.';
+      }
     }else{
       $('cloudAuthStatus').textContent='Noch kein Elternkonto angemeldet. Für KI und Cloud-Galerie bitte anmelden.';
       $('emailLogin').hidden=false;
@@ -769,7 +830,7 @@ $('pinInput').addEventListener('keydown',e=>{if(e.key==='Enter')verifyOrCreatePi
 $('sendMagicLink').addEventListener('click',async()=>{
   const email=$('parentEmail').value.trim();
   if(!/^\S+@\S+\.\S+$/.test(email))return alert('Bitte eine gültige E-Mail-Adresse eingeben.');
-  try{await sendLogin(email);$('cloudAuthStatus').textContent='Anmeldelink versendet. Bitte E-Mail öffnen und auf den Link klicken.';}
+  try{await sendLogin(email);$('cloudAuthStatus').textContent='Neuer Anmeldelink angefordert. Bitte NUR DEN NEUESTEN Link EINMAL öffnen – auf demselben Gerät und im selben Browser, in dem du MALINO benutzt. Danach zu MALINO zurückkehren.';}
   catch(e){$('cloudAuthStatus').textContent='Anmeldung fehlgeschlagen: '+e.message;}
 });
 $('logoutBtn').addEventListener('click',async()=>{
@@ -810,7 +871,7 @@ function boot() {
   setMode('fantasy');
   setImage('./demo-a4.svg', 'Affe im Baum', modes.fantasy.resultMeta);
   applyControls();
-  healthCheck().catch(e=>console.warn(e));
+  initializeCloudLogin().catch(e=>console.warn(e));
 }
 
 boot();
